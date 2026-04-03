@@ -333,8 +333,8 @@
     <p class="footer-nav">提示：可在移动端滑动交互；若需要雨声，可启用页面内注释的 audio 标签。</p>
   </main>
 
-  <!-- 可选：启用背景雨声（替换音频路径） -->
-  <!-- <audio src="rain.mp3" autoplay loop></audio> -->
+  <audio id="bgmAudio" src="/清明雨上伴奏.mp3" preload="auto" loop autoplay></audio>
+  <audio id="rainAudio" src="/rain.mp3" preload="auto" loop autoplay></audio>
 
   <script>
     (() => {
@@ -344,54 +344,23 @@
       const progressEl = document.getElementById('progress');
       let targetName = '某氏列祖列宗';
 
-      // ===== 背景雨声音频（WebAudio，无外部文件） =====
-      let audioCtx = null;
-      let noiseNode = null;
-      let filterNode = null;
-      let gainNode = null;
+      // ===== 背景雨声音频（外部文件） =====
+      const bgmAudio = document.getElementById('bgmAudio');
+      const rainAudio = document.getElementById('rainAudio');
       let isAudioOn = false;
 
-      function ensureAudioGraph() {
-        if (audioCtx) return;
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContextClass) return;
-        audioCtx = new AudioContextClass();
-
-        const bufferSize = 2 * audioCtx.sampleRate;
-        const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-        const data = noiseBuffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-
-        noiseNode = audioCtx.createBufferSource();
-        noiseNode.buffer = noiseBuffer;
-        noiseNode.loop = true;
-
-        filterNode = audioCtx.createBiquadFilter();
-        filterNode.type = 'bandpass';
-        filterNode.frequency.value = 1300;
-        filterNode.Q.value = 0.7;
-
-        const low = audioCtx.createBiquadFilter();
-        low.type = 'lowpass';
-        low.frequency.value = 3200;
-
-        gainNode = audioCtx.createGain();
-        gainNode.gain.value = 0.0001;
-
-        noiseNode.connect(filterNode);
-        filterNode.connect(low);
-        low.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-        noiseNode.start();
+      function setupAudioDefaults() {
+        if (bgmAudio) bgmAudio.volume = 0.35;
+        if (rainAudio) rainAudio.volume = 0.45;
       }
 
       async function startRainAudio(auto = false) {
         try {
-          ensureAudioGraph();
-          if (!audioCtx || !gainNode) return false;
-          if (audioCtx.state === 'suspended') await audioCtx.resume();
-          gainNode.gain.cancelScheduledValues(audioCtx.currentTime);
-          gainNode.gain.linearRampToValueAtTime(0.028, audioCtx.currentTime + 0.8);
+          setupAudioDefaults();
+          const tasks = [];
+          if (bgmAudio) tasks.push(bgmAudio.play());
+          if (rainAudio) tasks.push(rainAudio.play());
+          await Promise.all(tasks);
           isAudioOn = true;
           updateAudioBtn();
           return true;
@@ -402,9 +371,8 @@
       }
 
       function stopRainAudio() {
-        if (!audioCtx || !gainNode) return;
-        gainNode.gain.cancelScheduledValues(audioCtx.currentTime);
-        gainNode.gain.linearRampToValueAtTime(0.0001, audioCtx.currentTime + 0.5);
+        if (bgmAudio) bgmAudio.pause();
+        if (rainAudio) rainAudio.pause();
         isAudioOn = false;
         updateAudioBtn();
       }
