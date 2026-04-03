@@ -120,9 +120,10 @@
       position: relative; width: min(680px, 98%); height: clamp(170px, 38vh, 320px);
       border: 1px solid rgba(180, 215, 224, .12); border-radius: 10px; margin: .8rem auto 0;
       background: linear-gradient(180deg, rgba(7, 12, 15, .25), rgba(14, 24, 28, .45)); overflow: hidden;
+      touch-action: none;
     }
     .weed {
-      position: absolute; bottom: 0; width: 3px; border-radius: 99px; transform-origin: bottom center;
+      position: absolute; bottom: 0; width: 5px; border-radius: 99px; transform-origin: bottom center;
       background: linear-gradient(180deg, rgba(140, 170, 120, .1), rgba(108, 146, 95, .56));
       transition: opacity .35s ease, transform .35s ease;
       filter: drop-shadow(0 0 2px rgba(116, 165, 120, .4));
@@ -162,7 +163,13 @@
       background: radial-gradient(circle at 50% 80%, rgba(48, 63, 68, .45), rgba(13, 20, 25, .35) 60%, rgba(9, 13, 16, .4) 100%);
       position: relative; overflow: hidden;
     }
-    .incense { position: absolute; bottom: 36px; width: 5px; height: 80px; background: #8b7261; border-radius: 4px; }
+    .altar {
+      position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+      width: min(82%, 460px); height: 14px; border-radius: 12px;
+      background: linear-gradient(180deg, rgba(86, 99, 104, .58), rgba(44, 54, 58, .62));
+      box-shadow: 0 4px 10px rgba(0,0,0,.35);
+    }
+    .incense { position: absolute; bottom: 32px; width: 5px; height: 80px; background: #8b7261; border-radius: 4px; }
     .incense::before {
       content: ""; position: absolute; top: -7px; left: -3px; width: 11px; height: 11px;
       background: radial-gradient(circle, rgba(255, 140, 100, .95), rgba(231, 81, 44, .15) 60%, transparent 70%);
@@ -172,7 +179,7 @@
     @keyframes ember { from { filter: blur(0); opacity: .7; } to { filter: blur(1px); opacity: 1; } }
 
     .paper {
-      position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+      position: absolute; bottom: 34px; left: 50%; transform: translateX(-50%);
       width: 90px; height: 56px; border: 1px solid rgba(210, 220, 190, .35);
       background: linear-gradient(180deg, rgba(183, 180, 146, .16), rgba(141, 128, 104, .15));
     }
@@ -279,6 +286,7 @@
           <p>点燃后，烟雾将缓缓上升，随风飘散。</p>
           <button class="btn" id="burnBtn">点香焚纸</button>
           <div class="ritual-spot" id="ritualSpot">
+            <div class="altar"></div>
             <div class="incense" style="left:43%"></div>
             <div class="incense" style="left:49%"></div>
             <div class="incense" style="left:55%"></div>
@@ -390,36 +398,67 @@
         const nextBtn = document.getElementById('weedNextBtn');
         field.innerHTML = '';
         weedCleared = 0;
-        const total = 120;
+        const total = 96;
         let cleaned = 0;
+        let dragging = false;
+
+        const cutWeed = (weed) => {
+          if (!weed || !weed.classList || weed.classList.contains('cut')) return;
+          weed.classList.add('cut');
+          cleaned++;
+          weedCleared = Math.round((cleaned / total) * 100);
+          status.textContent = `已清理：${weedCleared}%`;
+          if (weedCleared >= 75) {
+            nextBtn.disabled = false;
+            status.textContent = `已清理：${weedCleared}%（达标）`;
+          }
+        };
+
+        const cutAtPoint = (clientX, clientY) => {
+          const target = document.elementFromPoint(clientX, clientY);
+          if (target && target.classList && target.classList.contains('weed')) cutWeed(target);
+        };
 
         for (let i = 0; i < total; i++) {
           const weed = document.createElement('i');
           weed.className = 'weed';
           const x = Math.random() * 100;
-          const h = 26 + Math.random() * 58;
-          const w = 2 + Math.random() * 4;
+          const h = 24 + Math.random() * 60;
+          const w = 4 + Math.random() * 5;
           const rot = -18 + Math.random() * 36;
           weed.style.left = `${x}%`;
           weed.style.height = `${h}px`;
           weed.style.width = `${w}px`;
           weed.style.transform = `rotate(${rot}deg)`;
 
-          const cut = () => {
-            if (weed.classList.contains('cut')) return;
-            weed.classList.add('cut');
-            cleaned++;
-            weedCleared = Math.round((cleaned / total) * 100);
-            status.textContent = `已清理：${weedCleared}%`;
-            if (weedCleared >= 75) {
-              nextBtn.disabled = false;
-              status.textContent = `已清理：${weedCleared}%（达标）`;
-            }
-          };
+          const cut = () => cutWeed(weed);
           weed.addEventListener('pointerenter', cut);
           weed.addEventListener('pointerdown', cut);
           field.appendChild(weed);
         }
+
+        field.onpointerdown = (e) => {
+          dragging = true;
+          cutAtPoint(e.clientX, e.clientY);
+        };
+        field.onpointermove = (e) => {
+          if (!dragging) return;
+          cutAtPoint(e.clientX, e.clientY);
+        };
+        window.onpointerup = () => { dragging = false; };
+
+        field.ontouchstart = (e) => {
+          dragging = true;
+          const t = e.touches[0];
+          if (t) cutAtPoint(t.clientX, t.clientY);
+        };
+        field.ontouchmove = (e) => {
+          if (!dragging) return;
+          const t = e.touches[0];
+          if (t) cutAtPoint(t.clientX, t.clientY);
+          e.preventDefault();
+        };
+        window.ontouchend = () => { dragging = false; };
 
         nextBtn.disabled = true;
         nextBtn.onclick = () => nextScene();
@@ -432,22 +471,23 @@
         const ctx = canvas.getContext('2d');
         const status = document.getElementById('dustStatus');
         const nextBtn = document.getElementById('dustNextBtn');
+        canvas.style.pointerEvents = 'auto';
 
-        const rect = stone.getBoundingClientRect();
+        const rect = canvas.getBoundingClientRect();
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        canvas.style.width = rect.width + 'px';
-        canvas.style.height = rect.height + 'px';
+        const vw = rect.width;
+        const vh = rect.height;
+        canvas.width = Math.round(vw * dpr);
+        canvas.height = Math.round(vh * dpr);
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
         // 灰尘层
-        ctx.clearRect(0, 0, rect.width, rect.height);
+        ctx.clearRect(0, 0, vw, vh);
         ctx.fillStyle = 'rgba(92, 102, 106, 0.88)';
-        ctx.fillRect(0, 0, rect.width, rect.height);
+        ctx.fillRect(0, 0, vw, vh);
         for (let i = 0; i < 1600; i++) {
           ctx.fillStyle = `rgba(130,140,145,${Math.random() * 0.26})`;
-          ctx.fillRect(Math.random() * rect.width, Math.random() * rect.height, 1.1, 1.1);
+          ctx.fillRect(Math.random() * vw, Math.random() * vh, 1.1, 1.1);
         }
 
         let scratching = false;
@@ -468,7 +508,10 @@
           clearCount = Math.min(100, clearCount + 0.35);
           status.textContent = `擦拭进度：${Math.floor(clearCount)}%`;
           if (clearCount >= needClear) {
-            status.textContent = '擦拭进度：100%（碑文已显）';
+            clearCount = 100;
+            ctx.clearRect(0, 0, vw, vh);
+            canvas.style.pointerEvents = 'none';
+            status.textContent = '擦拭进度：100%（灰尘已完全清除）';
             nextBtn.disabled = false;
           }
         }
