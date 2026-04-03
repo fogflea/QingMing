@@ -354,7 +354,8 @@
 
       // ===== Scene 1 =====
       function initScene1() {
-        document.querySelector('[data-next]')?.onclick = () => nextScene();
+        const startBtn = document.querySelector('[data-next]');
+        if (startBtn) startBtn.onclick = () => nextScene();
       }
 
       // ===== Scene 2：输入祭祀对象 =====
