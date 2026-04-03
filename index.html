@@ -1,0 +1,695 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>清明节赛博祭祖 · 沉浸式流程体验</title>
+  <style>
+    :root {
+      --bg0: #0b1114;
+      --bg1: #111b20;
+      --bg2: #1b2b31;
+      --line: rgba(184, 214, 221, 0.28);
+      --text: #dce9eb;
+      --soft: rgba(220, 233, 235, 0.72);
+      --glow: rgba(166, 220, 232, 0.4);
+      --panel: rgba(13, 22, 27, 0.45);
+      --ok: #9cc5cd;
+      --danger: #9daeb3;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+    body {
+      font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", serif;
+      color: var(--text);
+      background: radial-gradient(circle at 35% 20%, #20353d 0%, var(--bg2) 30%, var(--bg0) 100%);
+    }
+
+    #rainCanvas, #fxCanvas {
+      position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none;
+    }
+    #rainCanvas { z-index: 0; }
+    #fxCanvas { z-index: 1; }
+
+    .fog {
+      position: fixed; inset: -12%; z-index: 2; pointer-events: none;
+      background:
+        radial-gradient(circle at 15% 25%, rgba(191, 222, 226, 0.12), transparent 45%),
+        radial-gradient(circle at 75% 60%, rgba(173, 212, 220, 0.1), transparent 40%),
+        radial-gradient(circle at 45% 80%, rgba(159, 197, 205, 0.08), transparent 40%);
+      filter: blur(30px);
+      opacity: 0.8;
+      animation: fogShift 20s ease-in-out infinite alternate;
+    }
+    @keyframes fogShift { from { transform: translate(-1%, -1%); } to { transform: translate(1.2%, 1%); } }
+
+    .app {
+      position: relative; z-index: 4; width: min(980px, 94vw); margin: 4vh auto 0;
+      min-height: 82vh; border: 1px solid var(--line); border-radius: 18px;
+      background: linear-gradient(155deg, rgba(17, 29, 34, 0.55), rgba(10, 16, 20, 0.35));
+      backdrop-filter: blur(10px) saturate(115%); -webkit-backdrop-filter: blur(10px) saturate(115%);
+      box-shadow: 0 20px 55px rgba(0, 0, 0, 0.35), inset 0 0 30px rgba(165, 217, 229, 0.08);
+      padding: 1.2rem;
+      overflow: hidden;
+    }
+
+    .title {
+      text-align: center; letter-spacing: 0.24em; font-size: clamp(1.3rem, 4vw, 2.1rem); margin: .5rem 0 .3rem;
+    }
+    .sub { text-align: center; color: var(--soft); margin: 0 0 1rem; font-size: .92rem; letter-spacing: .12em; }
+
+    .scene-wrap { position: relative; min-height: 66vh; }
+    .scene {
+      position: absolute; inset: 0; opacity: 0; filter: blur(12px); transform: translateY(12px) scale(.99);
+      pointer-events: none; transition: opacity .8s ease, filter .8s ease, transform .8s ease;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .scene.active { opacity: 1; filter: blur(0); transform: translateY(0) scale(1); pointer-events: auto; }
+
+    .card {
+      width: min(760px, 96%); padding: 1rem; border-radius: 14px; background: var(--panel);
+      border: 1px solid rgba(186, 220, 226, 0.22);
+      text-align: center;
+    }
+
+    .poem {
+      color: var(--soft); letter-spacing: .18em; animation: breathe 5.8s ease-in-out infinite;
+      margin-top: .8rem;
+    }
+    @keyframes breathe { 0%,100%{opacity:.2; filter: blur(1px);} 50%{opacity:.95;filter: blur(0);} }
+
+    .input, .btn {
+      border-radius: 10px; border: 1px solid rgba(184, 223, 230, 0.42);
+      font-size: 1rem;
+    }
+    .input {
+      width: min(92%, 540px); background: rgba(7, 13, 16, 0.35); color: var(--text); padding: .78rem .9rem;
+      outline: none; transition: box-shadow .25s ease, border-color .25s ease;
+    }
+    .input:focus { border-color: rgba(181, 234, 245, .8); box-shadow: 0 0 0 2px rgba(131, 196, 211, .18), 0 0 18px var(--glow); }
+
+    .btn {
+      position: relative; overflow: hidden; isolation: isolate; cursor: pointer;
+      background: linear-gradient(180deg, rgba(142, 186, 196, 0.35), rgba(103, 145, 154, 0.23));
+      color: #e9f1f3; padding: .68rem 1rem; min-width: 120px; margin: .5rem;
+      transition: transform .2s ease, box-shadow .2s ease;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 8px 18px rgba(107, 149, 158, 0.38); }
+    .btn:active { transform: translateY(1px); }
+    .btn[disabled] { opacity: .45; cursor: not-allowed; }
+    .ripple {
+      position: absolute; border-radius: 999px; width: 16px; height: 16px; transform: scale(0);
+      background: radial-gradient(circle, rgba(226, 245, 248, .5), rgba(226, 245, 248, .2) 45%, transparent 70%);
+      animation: ripple .7s ease-out; pointer-events: none; z-index: -1;
+    }
+    @keyframes ripple { to { transform: scale(16); opacity: 0; } }
+
+    .progress {
+      display: flex; gap: .25rem; justify-content: center; margin: .6rem 0 0;
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(196, 219, 224, .24); }
+    .dot.on { background: rgba(188, 231, 240, .9); box-shadow: 0 0 10px rgba(175, 224, 235, .7); }
+
+    /* scene 3: 杂草 */
+    #graveField {
+      position: relative; width: min(680px, 98%); height: min(46vh, 340px);
+      border: 1px solid rgba(180, 215, 224, .28); border-radius: 12px; margin: .8rem auto 0;
+      background: linear-gradient(180deg, rgba(7, 12, 15, .25), rgba(14, 24, 28, .45)); overflow: hidden;
+    }
+    .weed {
+      position: absolute; bottom: 0; width: 3px; border-radius: 99px; transform-origin: bottom center;
+      background: linear-gradient(180deg, rgba(140, 170, 120, .1), rgba(108, 146, 95, .56));
+      transition: opacity .35s ease, transform .35s ease;
+      filter: drop-shadow(0 0 2px rgba(116, 165, 120, .4));
+    }
+    .weed.cut { opacity: 0; transform: scale(.35) rotate(8deg); }
+
+    /* scene 4: 擦拭墓碑 */
+    .stone-wrap { position: relative; width: min(640px, 94%); margin: .8rem auto; }
+    .stone {
+      height: min(46vh, 340px); border-radius: 14px 14px 10px 10px;
+      border: 1px solid rgba(194, 224, 230, .28);
+      background: linear-gradient(180deg, rgba(73, 92, 100, .4), rgba(44, 58, 62, .5));
+      display: flex; align-items: center; justify-content: center; color: rgba(235, 241, 243, .9);
+      text-align: center; padding: 1rem;
+      box-shadow: inset 0 0 40px rgba(0,0,0,.4);
+      position: relative;
+    }
+    .stone-text { font-size: clamp(1rem, 3.6vw, 1.45rem); letter-spacing: .16em; line-height: 1.9; }
+    #dustCanvas { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: inherit; }
+
+    /* scene5 供品 */
+    .offerings { display: grid; grid-template-columns: repeat(3, minmax(80px, 1fr)); gap: .9rem; margin-top: .8rem; }
+    .item {
+      opacity: 0; transform: translateY(15px) scale(.9); filter: blur(3px);
+      transition: .55s ease;
+      border: 1px solid rgba(198, 226, 232, .2); border-radius: 10px; padding: .8rem .4rem;
+      background: rgba(17, 29, 34, .36);
+      animation: floatY 3.2s ease-in-out infinite;
+    }
+    .item.show { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+    @keyframes floatY { 0%,100%{ transform: translateY(0);} 50%{ transform: translateY(-4px);} }
+
+    /* scene6 焚香 */
+    .ritual-spot {
+      width: min(680px, 96%); height: min(42vh, 280px); margin: .8rem auto 0;
+      border: 1px solid rgba(185, 216, 224, .3); border-radius: 12px;
+      background: radial-gradient(circle at 50% 80%, rgba(48, 63, 68, .45), rgba(13, 20, 25, .35) 60%, rgba(9, 13, 16, .4) 100%);
+      position: relative; overflow: hidden;
+    }
+    .incense { position: absolute; bottom: 36px; width: 5px; height: 80px; background: #8b7261; border-radius: 4px; }
+    .incense::before {
+      content: ""; position: absolute; top: -7px; left: -3px; width: 11px; height: 11px;
+      background: radial-gradient(circle, rgba(255, 140, 100, .95), rgba(231, 81, 44, .15) 60%, transparent 70%);
+      border-radius: 50%;
+      animation: ember 1.2s infinite alternate;
+    }
+    @keyframes ember { from { filter: blur(0); opacity: .7; } to { filter: blur(1px); opacity: 1; } }
+
+    .paper {
+      position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+      width: 90px; height: 56px; border: 1px solid rgba(210, 220, 190, .35);
+      background: linear-gradient(180deg, rgba(183, 180, 146, .16), rgba(141, 128, 104, .15));
+    }
+
+    /* scene7 寄语 */
+    #messageSky { position: relative; width: 100%; height: min(46vh, 340px); overflow: hidden; border-radius: 10px; border: 1px solid rgba(186,216,223,.22); }
+    .soul {
+      position: absolute; left: 50%; bottom: 10%; transform: translateX(-50%);
+      color: rgba(232, 242, 245, .9); text-shadow: 0 0 12px rgba(217, 240, 246, .4), 0 0 24px rgba(191, 230, 239, .2);
+      max-width: min(84vw, 40rem); text-align: center; white-space: pre-wrap; word-break: break-word;
+      font-size: clamp(1rem, 3.2vw, 1.3rem); letter-spacing: .08em;
+      animation: rise 8.6s ease-out forwards;
+    }
+    @keyframes rise {
+      0%{opacity:0; filter: blur(2px); transform: translate(-50%, 0) scale(.98);} 12%{opacity:.95; filter: blur(0);} 60%{opacity:.7;} 100%{opacity:0; filter: blur(6px); transform: translate(-50%, -58vh) scale(1.03);} }
+
+    .footer-nav { text-align: center; margin-top: .8rem; color: rgba(209, 227, 231, .62); font-size: .84rem; }
+
+    @media (max-width: 700px) {
+      .app { margin-top: 2vh; min-height: 90vh; }
+      .scene-wrap { min-height: 68vh; }
+      .offerings { grid-template-columns: repeat(2, minmax(80px, 1fr)); }
+      .title { letter-spacing: .16em; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="rainCanvas" aria-hidden="true"></canvas>
+  <canvas id="fxCanvas" aria-hidden="true"></canvas>
+  <div class="fog" aria-hidden="true"></div>
+
+  <main class="app">
+    <h1 class="title">清明节赛博祭祖 · 沉浸式流程体验</h1>
+    <p class="sub">雨、雾、香火与寄语：一步一步完成一场安静的追思。</p>
+    <div class="progress" id="progress"></div>
+
+    <section class="scene-wrap" id="sceneWrap">
+      <div class="scene" id="scene1">
+        <div class="card">
+          <h2>开场</h2>
+          <p class="poem">清明时节雨纷纷，路上行人欲断魂。</p>
+          <p>雨雾已起，请静心，开始这场赛博祭祀。</p>
+          <button class="btn" data-next>开始流程</button>
+        </div>
+      </div>
+
+      <div class="scene" id="scene2">
+        <div class="card">
+          <h2>步骤 1 / 输入祭祀对象</h2>
+          <p>请输入先人称谓（如：张氏列祖列宗 / 祖父李某）。</p>
+          <input class="input" id="targetInput" placeholder="某氏列祖列宗" maxlength="30" />
+          <div>
+            <button class="btn" id="saveTargetBtn">确认并前往清理杂草</button>
+          </div>
+          <p id="targetTip" class="sub"></p>
+        </div>
+      </div>
+
+      <div class="scene" id="scene3">
+        <div class="card">
+          <h2>步骤 2 / 清理杂草</h2>
+          <p>用鼠标或手指在草丛上划过，清理至少 75% 杂草。</p>
+          <div id="graveField"></div>
+          <p id="weedStatus" class="sub">已清理：0%</p>
+          <button class="btn" id="weedNextBtn" disabled>继续修整墓碑</button>
+        </div>
+      </div>
+
+      <div class="scene" id="scene4">
+        <div class="card">
+          <h2>步骤 3 / 修整墓碑</h2>
+          <p>在墓碑上拖动擦拭灰尘，显露碑文。</p>
+          <div class="stone-wrap">
+            <div class="stone" id="stone">
+              <div class="stone-text" id="stoneText">敬祭<br/>某氏列祖列宗<br/>风雨归宁</div>
+              <canvas id="dustCanvas"></canvas>
+            </div>
+          </div>
+          <p id="dustStatus" class="sub">擦拭进度：0%</p>
+          <button class="btn" id="dustNextBtn" disabled>继续供奉祭品</button>
+        </div>
+      </div>
+
+      <div class="scene" id="scene5">
+        <div class="card">
+          <h2>步骤 4 / 供奉祭品</h2>
+          <p>点击按钮逐一供奉，表达敬意。</p>
+          <button class="btn" id="offerBtn">供奉下一件</button>
+          <div class="offerings">
+            <div class="item" id="offer0">🍎 果品</div>
+            <div class="item" id="offer1">🍊 时令</div>
+            <div class="item" id="offer2">🍶 清酒</div>
+            <div class="item" id="offer3">🥮 糕点</div>
+            <div class="item" id="offer4">🕯️ 烛灯</div>
+            <div class="item" id="offer5">🌾 清茶</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="scene" id="scene6">
+        <div class="card">
+          <h2>步骤 5 / 上香祷祝 · 焚烧纸钱</h2>
+          <p>点燃后，烟雾将缓缓上升，随风飘散。</p>
+          <button class="btn" id="burnBtn">点香焚纸</button>
+          <div class="ritual-spot" id="ritualSpot">
+            <div class="incense" style="left:43%"></div>
+            <div class="incense" style="left:49%"></div>
+            <div class="incense" style="left:55%"></div>
+            <div class="paper"></div>
+          </div>
+          <button class="btn" id="burnNextBtn" disabled>进入寄语</button>
+        </div>
+      </div>
+
+      <div class="scene" id="scene7">
+        <div class="card">
+          <h2>步骤 6 / 输入寄语</h2>
+          <p>写下你想说的话，让思念随烟雨上升。</p>
+          <input id="msgInput" class="input" maxlength="90" placeholder="愿家族安宁，后人谨记先德……" />
+          <div>
+            <button class="btn" id="sendMsgBtn">寄语升天</button>
+            <button class="btn" id="restartBtn">重新祭祀流程</button>
+          </div>
+          <div id="messageSky"></div>
+        </div>
+      </div>
+    </section>
+
+    <p class="footer-nav">提示：可在移动端滑动交互；若需要雨声，可启用页面内注释的 audio 标签。</p>
+  </main>
+
+  <!-- 可选：启用背景雨声（替换音频路径） -->
+  <!-- <audio src="rain.mp3" autoplay loop></audio> -->
+
+  <script>
+    (() => {
+      const TOTAL_SCENES = 7;
+      let currentScene = 1; // 状态机核心状态
+      const sceneEls = Array.from({ length: TOTAL_SCENES }, (_, i) => document.getElementById(`scene${i + 1}`));
+      const progressEl = document.getElementById('progress');
+      let targetName = '某氏列祖列宗';
+
+      // ===== 通用UI =====
+      function buildProgress() {
+        progressEl.innerHTML = '';
+        for (let i = 1; i <= TOTAL_SCENES; i++) {
+          const dot = document.createElement('span');
+          dot.className = 'dot' + (i <= currentScene ? ' on' : '');
+          progressEl.appendChild(dot);
+        }
+      }
+
+      function attachRipple(btn, e) {
+        const rect = btn.getBoundingClientRect();
+        const rp = document.createElement('span');
+        rp.className = 'ripple';
+        rp.style.left = `${(e?.clientX ?? rect.left + rect.width / 2) - rect.left}px`;
+        rp.style.top = `${(e?.clientY ?? rect.top + rect.height / 2) - rect.top}px`;
+        btn.appendChild(rp);
+        rp.addEventListener('animationend', () => rp.remove(), { once: true });
+      }
+
+      document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.btn');
+        if (btn) attachRipple(btn, e);
+      });
+
+      // ===== Scene 切换（带淡入/模糊过渡） =====
+      function showScene(index) {
+        sceneEls.forEach((el, i) => el.classList.toggle('active', i === index - 1));
+        currentScene = index;
+        buildProgress();
+        const initFn = window[`initScene${index}`];
+        if (typeof initFn === 'function') initFn();
+      }
+
+      function nextScene() {
+        if (currentScene < TOTAL_SCENES) {
+          showScene(currentScene + 1);
+        }
+      }
+      window.nextScene = nextScene;
+
+      // ===== Scene 1 =====
+      function initScene1() {
+        document.querySelector('[data-next]')?.onclick = () => nextScene();
+      }
+
+      // ===== Scene 2：输入祭祀对象 =====
+      function initScene2() {
+        const input = document.getElementById('targetInput');
+        const btn = document.getElementById('saveTargetBtn');
+        const tip = document.getElementById('targetTip');
+        input.value = targetName;
+        btn.onclick = () => {
+          targetName = input.value.trim() || '某氏列祖列宗';
+          tip.textContent = `已确认：${targetName}`;
+          document.getElementById('stoneText').innerHTML = `敬祭<br/>${targetName}<br/>风雨归宁`;
+          setTimeout(nextScene, 450);
+        };
+      }
+
+      // ===== Scene 3：清理杂草 =====
+      let weedCleared = 0;
+      function initScene3() {
+        const field = document.getElementById('graveField');
+        const status = document.getElementById('weedStatus');
+        const nextBtn = document.getElementById('weedNextBtn');
+        field.innerHTML = '';
+        weedCleared = 0;
+        const total = 120;
+        let cleaned = 0;
+
+        for (let i = 0; i < total; i++) {
+          const weed = document.createElement('i');
+          weed.className = 'weed';
+          const x = Math.random() * 100;
+          const h = 26 + Math.random() * 58;
+          const w = 2 + Math.random() * 4;
+          const rot = -18 + Math.random() * 36;
+          weed.style.left = `${x}%`;
+          weed.style.height = `${h}px`;
+          weed.style.width = `${w}px`;
+          weed.style.transform = `rotate(${rot}deg)`;
+
+          const cut = () => {
+            if (weed.classList.contains('cut')) return;
+            weed.classList.add('cut');
+            cleaned++;
+            weedCleared = Math.round((cleaned / total) * 100);
+            status.textContent = `已清理：${weedCleared}%`;
+            if (weedCleared >= 75) {
+              nextBtn.disabled = false;
+              status.textContent = `已清理：${weedCleared}%（达标）`;
+            }
+          };
+          weed.addEventListener('pointerenter', cut);
+          weed.addEventListener('pointerdown', cut);
+          field.appendChild(weed);
+        }
+
+        nextBtn.disabled = true;
+        nextBtn.onclick = () => nextScene();
+      }
+
+      // ===== Scene 4：擦拭墓碑 =====
+      function initScene4() {
+        const stone = document.getElementById('stone');
+        const canvas = document.getElementById('dustCanvas');
+        const ctx = canvas.getContext('2d');
+        const status = document.getElementById('dustStatus');
+        const nextBtn = document.getElementById('dustNextBtn');
+
+        const rect = stone.getBoundingClientRect();
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        canvas.style.width = rect.width + 'px';
+        canvas.style.height = rect.height + 'px';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        // 灰尘层
+        ctx.clearRect(0, 0, rect.width, rect.height);
+        ctx.fillStyle = 'rgba(92, 102, 106, 0.88)';
+        ctx.fillRect(0, 0, rect.width, rect.height);
+        for (let i = 0; i < 1600; i++) {
+          ctx.fillStyle = `rgba(130,140,145,${Math.random() * 0.26})`;
+          ctx.fillRect(Math.random() * rect.width, Math.random() * rect.height, 1.1, 1.1);
+        }
+
+        let scratching = false;
+        let clearCount = 0;
+        const needClear = 95;
+        nextBtn.disabled = true;
+
+        function erase(x, y) {
+          ctx.globalCompositeOperation = 'destination-out';
+          const g = ctx.createRadialGradient(x, y, 2, x, y, 24);
+          g.addColorStop(0, 'rgba(0,0,0,.35)');
+          g.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(x, y, 24, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalCompositeOperation = 'source-over';
+          clearCount = Math.min(100, clearCount + 0.35);
+          status.textContent = `擦拭进度：${Math.floor(clearCount)}%`;
+          if (clearCount >= needClear) {
+            status.textContent = '擦拭进度：100%（碑文已显）';
+            nextBtn.disabled = false;
+          }
+        }
+
+        const point = (e) => {
+          const r = canvas.getBoundingClientRect();
+          const p = e.touches ? e.touches[0] : e;
+          return { x: p.clientX - r.left, y: p.clientY - r.top };
+        };
+
+        const start = (e) => { scratching = true; const p = point(e); erase(p.x, p.y); };
+        const move = (e) => { if (!scratching) return; e.preventDefault(); const p = point(e); erase(p.x, p.y); };
+        const end = () => { scratching = false; };
+
+        canvas.onpointerdown = start;
+        canvas.onpointermove = move;
+        window.onpointerup = end;
+        canvas.ontouchstart = start;
+        canvas.ontouchmove = move;
+        window.ontouchend = end;
+        nextBtn.onclick = () => nextScene();
+      }
+
+      // ===== Scene 5：供品 =====
+      let offerIndex = 0;
+      function initScene5() {
+        offerIndex = 0;
+        for (let i = 0; i < 6; i++) document.getElementById(`offer${i}`).classList.remove('show');
+        const offerBtn = document.getElementById('offerBtn');
+        offerBtn.disabled = false;
+        offerBtn.textContent = '供奉下一件';
+        offerBtn.onclick = () => {
+          if (offerIndex < 6) {
+            document.getElementById(`offer${offerIndex}`).classList.add('show');
+            offerIndex++;
+          }
+          if (offerIndex >= 6) {
+            offerBtn.disabled = true;
+            offerBtn.textContent = '供品已齐，前往焚香';
+            setTimeout(nextScene, 650);
+          }
+        };
+      }
+
+      // ===== Scene 6：焚烧纸钱 + 烟雾粒子 =====
+      const fxCanvas = document.getElementById('fxCanvas');
+      const fx = fxCanvas.getContext('2d');
+      let W = 0, H = 0, DPR = 1;
+      const smokeParticles = [];
+      let burning = false;
+      function resizeFX() {
+        DPR = Math.min(window.devicePixelRatio || 1, 2);
+        W = window.innerWidth; H = window.innerHeight;
+        fxCanvas.width = W * DPR; fxCanvas.height = H * DPR;
+        fxCanvas.style.width = W + 'px'; fxCanvas.style.height = H + 'px';
+        fx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      }
+
+      function spawnSmoke(x, y) {
+        smokeParticles.push({
+          x, y,
+          vx: (Math.random() - 0.5) * 0.4 + 0.18, // 风向加分：轻微横向漂移
+          vy: -(0.8 + Math.random() * 1.6),
+          life: 1,
+          size: 8 + Math.random() * 24,
+          rot: Math.random() * Math.PI,
+          vr: (Math.random() - 0.5) * 0.04
+        });
+      }
+
+      function initScene6() {
+        const burnBtn = document.getElementById('burnBtn');
+        const nextBtn = document.getElementById('burnNextBtn');
+        nextBtn.disabled = true;
+        burning = false;
+        burnBtn.textContent = '点香焚纸';
+
+        burnBtn.onclick = () => {
+          burning = true;
+          burnBtn.disabled = true;
+          burnBtn.textContent = '香火已燃';
+          setTimeout(() => { nextBtn.disabled = false; }, 1800);
+        };
+        nextBtn.onclick = () => nextScene();
+      }
+
+      // ===== Scene 7：寄语 =====
+      function initScene7() {
+        const input = document.getElementById('msgInput');
+        const btn = document.getElementById('sendMsgBtn');
+        const sky = document.getElementById('messageSky');
+        const restart = document.getElementById('restartBtn');
+
+        btn.onclick = () => {
+          const text = input.value.trim();
+          if (!text) { input.focus(); return; }
+          const p = document.createElement('p');
+          p.className = 'soul';
+          p.textContent = text;
+          p.style.left = `${46 + Math.random() * 8}%`;
+          p.style.animationDuration = `${7 + Math.random() * 3}s`;
+          sky.appendChild(p);
+          p.addEventListener('animationend', () => p.remove(), { once: true });
+          input.value = '';
+        };
+
+        restart.onclick = () => {
+          burning = false;
+          smokeParticles.length = 0;
+          showScene(1);
+        };
+      }
+
+      // ===== 背景雨（多层） =====
+      const rainCanvas = document.getElementById('rainCanvas');
+      const rain = rainCanvas.getContext('2d');
+      const rainFar = [];
+      const rainNear = [];
+
+      function resizeRain() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        rainCanvas.width = window.innerWidth * dpr;
+        rainCanvas.height = window.innerHeight * dpr;
+        rainCanvas.style.width = window.innerWidth + 'px';
+        rainCanvas.style.height = window.innerHeight + 'px';
+        rain.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        rainFar.length = 0;
+        rainNear.length = 0;
+        const w = window.innerWidth, h = window.innerHeight;
+        for (let i = 0; i < 110; i++) rainFar.push(makeDrop(w, h, true));
+        for (let i = 0; i < 90; i++) rainNear.push(makeDrop(w, h, false));
+      }
+
+      function makeDrop(w, h, far) {
+        return {
+          x: Math.random() * w,
+          y: Math.random() * h,
+          len: far ? 8 + Math.random() * 10 : 12 + Math.random() * 18,
+          v: far ? 1.2 + Math.random() * 1.8 : 2.5 + Math.random() * 3.2,
+          sway: (Math.random() - 0.5) * (far ? .2 : .42),
+          a: far ? .13 + Math.random() * .18 : .2 + Math.random() * .34,
+          w: far ? .7 : 1.2
+        };
+      }
+
+      function drawRainLayer(list, color) {
+        const w = window.innerWidth, h = window.innerHeight;
+        for (const d of list) {
+          rain.beginPath();
+          rain.strokeStyle = `rgba(${color}, ${d.a})`;
+          rain.lineWidth = d.w;
+          rain.moveTo(d.x, d.y);
+          rain.lineTo(d.x + d.sway * d.len, d.y + d.len);
+          rain.stroke();
+          d.x += d.sway;
+          d.y += d.v;
+          if (d.y > h + d.len || d.x < -20 || d.x > w + 20) {
+            d.x = Math.random() * w;
+            d.y = -15 - Math.random() * h * 0.2;
+          }
+        }
+      }
+
+      // ===== 主循环 =====
+      function loop() {
+        const w = window.innerWidth, h = window.innerHeight;
+
+        // rain
+        rain.clearRect(0, 0, w, h);
+        drawRainLayer(rainFar, '178,209,218');
+        drawRainLayer(rainNear, '190,226,236');
+
+        // smoke / fx
+        fx.clearRect(0, 0, W, H);
+        if (burning) {
+          const ritual = document.getElementById('ritualSpot');
+          if (ritual) {
+            const r = ritual.getBoundingClientRect();
+            if (Math.random() < 0.9) spawnSmoke(r.left + r.width * (0.48 + (Math.random() - 0.5) * 0.08), r.top + r.height * 0.75);
+          }
+        }
+
+        for (let i = smokeParticles.length - 1; i >= 0; i--) {
+          const p = smokeParticles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.rot += p.vr;
+          p.life -= 0.01;
+          p.size += 0.12;
+          if (p.life <= 0) { smokeParticles.splice(i, 1); continue; }
+
+          fx.save();
+          fx.translate(p.x, p.y);
+          fx.rotate(p.rot);
+          fx.globalAlpha = p.life * 0.38;
+          const grd = fx.createRadialGradient(0, 0, 0, 0, 0, p.size);
+          grd.addColorStop(0, 'rgba(214, 224, 228, .8)');
+          grd.addColorStop(1, 'rgba(190, 202, 210, 0)');
+          fx.fillStyle = grd;
+          fx.beginPath();
+          fx.ellipse(0, 0, p.size, p.size * 0.62, 0, 0, Math.PI * 2);
+          fx.fill();
+          fx.restore();
+        }
+
+        requestAnimationFrame(loop);
+      }
+
+      // 注册 initSceneX 到 window，满足结构要求
+      window.initScene1 = initScene1;
+      window.initScene2 = initScene2;
+      window.initScene3 = initScene3;
+      window.initScene4 = initScene4;
+      window.initScene5 = initScene5;
+      window.initScene6 = initScene6;
+      window.initScene7 = initScene7;
+
+      function boot() {
+        resizeRain();
+        resizeFX();
+        showScene(1);
+        requestAnimationFrame(loop);
+      }
+
+      window.addEventListener('resize', () => {
+        resizeRain();
+        resizeFX();
+      }, { passive: true });
+
+      boot();
+    })();
+  </script>
+</body>
+</html>
