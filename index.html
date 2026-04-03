@@ -45,12 +45,8 @@
     @keyframes fogShift { from { transform: translate(-1%, -1%); } to { transform: translate(1.2%, 1%); } }
 
     .app {
-      position: relative; z-index: 4; width: min(980px, 94vw); margin: 4vh auto 0;
-      min-height: 82vh; border: 1px solid var(--line); border-radius: 18px;
-      background: linear-gradient(155deg, rgba(17, 29, 34, 0.55), rgba(10, 16, 20, 0.35));
-      backdrop-filter: blur(10px) saturate(115%); -webkit-backdrop-filter: blur(10px) saturate(115%);
-      box-shadow: 0 20px 55px rgba(0, 0, 0, 0.35), inset 0 0 30px rgba(165, 217, 229, 0.08);
-      padding: 1rem;
+      position: relative; z-index: 4; width: 100vw; height: 100vh; margin: 0;
+      padding: 1.1rem .9rem .6rem;
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -72,10 +68,9 @@
     .scene.active { opacity: 1; filter: blur(0); transform: translateY(0) scale(1); pointer-events: auto; }
 
     .card {
-      width: min(760px, 100%); padding: .95rem; border-radius: 14px; background: var(--panel);
-      max-height: 100%;
-      overflow: auto;
-      border: 1px solid rgba(186, 220, 226, 0.22);
+      width: min(880px, 100%); padding: .6rem .8rem; border-radius: 0;
+      max-height: 100%; overflow: auto;
+      background: transparent; border: none; box-shadow: none;
       text-align: center;
     }
 
@@ -123,7 +118,7 @@
     /* scene 3: 杂草 */
     #graveField {
       position: relative; width: min(680px, 98%); height: clamp(170px, 38vh, 320px);
-      border: 1px solid rgba(180, 215, 224, .28); border-radius: 12px; margin: .8rem auto 0;
+      border: 1px solid rgba(180, 215, 224, .12); border-radius: 10px; margin: .8rem auto 0;
       background: linear-gradient(180deg, rgba(7, 12, 15, .25), rgba(14, 24, 28, .45)); overflow: hidden;
     }
     .weed {
@@ -138,7 +133,7 @@
     .stone-wrap { position: relative; width: min(640px, 94%); margin: .8rem auto; }
     .stone {
       height: clamp(170px, 38vh, 320px); border-radius: 14px 14px 10px 10px;
-      border: 1px solid rgba(194, 224, 230, .28);
+      border: 1px solid rgba(194, 224, 230, .14);
       background: linear-gradient(180deg, rgba(73, 92, 100, .4), rgba(44, 58, 62, .5));
       display: flex; align-items: center; justify-content: center;
       color: rgba(235, 241, 243, .9); text-align: center; padding: 1rem;
@@ -163,7 +158,7 @@
     /* scene6 焚香 */
     .ritual-spot {
       width: min(680px, 96%); height: clamp(170px, 34vh, 270px); margin: .8rem auto 0;
-      border: 1px solid rgba(185, 216, 224, .3); border-radius: 12px;
+      border: 1px solid rgba(185, 216, 224, .14); border-radius: 10px;
       background: radial-gradient(circle at 50% 80%, rgba(48, 63, 68, .45), rgba(13, 20, 25, .35) 60%, rgba(9, 13, 16, .4) 100%);
       position: relative; overflow: hidden;
     }
@@ -183,7 +178,7 @@
     }
 
     /* scene7 寄语 */
-    #messageSky { position: relative; width: 100%; height: clamp(180px, 35vh, 300px); overflow: hidden; border-radius: 10px; border: 1px solid rgba(186,216,223,.22); }
+    #messageSky { position: relative; width: 100%; height: clamp(180px, 35vh, 300px); overflow: hidden; border-radius: 8px; border: 1px solid rgba(186,216,223,.12); }
     .soul {
       position: absolute; left: 50%; bottom: 10%; transform: translateX(-50%);
       color: rgba(232, 242, 245, .9); text-shadow: 0 0 12px rgba(217, 240, 246, .4), 0 0 24px rgba(191, 230, 239, .2);
@@ -197,7 +192,7 @@
     .footer-nav { text-align: center; margin-top: .4rem; color: rgba(209, 227, 231, .62); font-size: .82rem; flex: none; }
 
     @media (max-width: 700px) {
-      .app { margin-top: 2vh; min-height: 92vh; padding: .8rem; }
+      .app { padding: .75rem .7rem .5rem; }
       .scene-wrap { min-height: 0; }
       .card { padding: .8rem; }
       .offerings { grid-template-columns: repeat(2, minmax(80px, 1fr)); }
@@ -349,6 +344,11 @@
       // ===== Scene 切换（带淡入/模糊过渡） =====
       function showScene(index) {
         sceneEls.forEach((el, i) => el.classList.toggle('active', i === index - 1));
+        // 离开上香场景后立即停止烟雾，避免后续流程残留
+        if (index !== 6) {
+          burning = false;
+          smokeParticles.length = 0;
+        }
         currentScene = index;
         buildProgress();
         const initFn = window[`initScene${index}`];
