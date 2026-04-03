@@ -213,7 +213,8 @@
       .scene-wrap { min-height: 0; }
       .card { padding: .8rem; }
       .offerings { grid-template-columns: repeat(2, minmax(80px, 1fr)); }
-      .title { letter-spacing: .16em; }
+      .title { letter-spacing: .16em; margin-top: .2rem; }
+      .audio-btn { position: fixed; right: .65rem; bottom: .85rem; top: auto; }
     }
   </style>
 </head>
@@ -223,7 +224,7 @@
   <div class="fog" aria-hidden="true"></div>
 
   <main class="app">
-    <button class="audio-btn" id="audioToggle" type="button">🔊 雨声开</button>
+    <button class="audio-btn off" id="audioToggle" type="button">🔈 点击开启雨声</button>
     <h1 class="title">清明节赛博祭祖 · 沉浸式流程体验</h1>
     <p class="sub">雨、雾、香火与寄语：一步一步完成一场安静的追思。</p>
     <div class="progress" id="progress"></div>
@@ -333,8 +334,8 @@
     <p class="footer-nav">提示：可在移动端滑动交互；若需要雨声，可启用页面内注释的 audio 标签。</p>
   </main>
 
-  <audio id="bgmAudio" src="/清明雨上伴奏.mp3" preload="auto" loop autoplay></audio>
-  <audio id="rainAudio" src="/rain.mp3" preload="auto" loop autoplay></audio>
+  <audio id="bgmAudio" src="/清明雨上伴奏.mp3" preload="auto" loop></audio>
+  <audio id="rainAudio" src="/rain.mp3" preload="auto" loop></audio>
 
   <script>
     (() => {
@@ -823,7 +824,7 @@
             else await startRainAudio(false);
           };
         }
-        startRainAudio(true); // 默认自动播放（受浏览器策略影响时可手动开启）
+        updateAudioBtn('点击开启雨声'); // 移动端通常禁自动播放，改为引导手动开启
 
         requestAnimationFrame(loop);
       }
