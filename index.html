@@ -142,7 +142,7 @@
       position: relative; overflow: hidden;
     }
     .stone-text { font-size: clamp(1rem, 3.6vw, 1.45rem); letter-spacing: .16em; line-height: 1.9; }
-    #dustCanvas { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: inherit; }
+    #dustCanvas { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: inherit; transition: opacity .9s ease; }
 
     /* scene5 供品 */
     .offerings { display: grid; grid-template-columns: repeat(3, minmax(80px, 1fr)); gap: .9rem; margin-top: .8rem; }
@@ -164,12 +164,12 @@
       position: relative; overflow: hidden;
     }
     .altar {
-      position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
-      width: min(82%, 460px); height: 14px; border-radius: 12px;
-      background: linear-gradient(180deg, rgba(86, 99, 104, .58), rgba(44, 54, 58, .62));
-      box-shadow: 0 4px 10px rgba(0,0,0,.35);
+      position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%);
+      width: min(84%, 500px); height: 16px; border-radius: 12px;
+      background: linear-gradient(180deg, rgba(92, 106, 111, .65), rgba(46, 57, 61, .68));
+      box-shadow: 0 6px 12px rgba(0,0,0,.36);
     }
-    .incense { position: absolute; bottom: 32px; width: 5px; height: 80px; background: #8b7261; border-radius: 4px; }
+    .incense { position: absolute; bottom: 36px; width: 5px; height: 82px; background: #8b7261; border-radius: 4px; transform: translateX(-50%); }
     .incense::before {
       content: ""; position: absolute; top: -7px; left: -3px; width: 11px; height: 11px;
       background: radial-gradient(circle, rgba(255, 140, 100, .95), rgba(231, 81, 44, .15) 60%, transparent 70%);
@@ -179,7 +179,7 @@
     @keyframes ember { from { filter: blur(0); opacity: .7; } to { filter: blur(1px); opacity: 1; } }
 
     .paper {
-      position: absolute; bottom: 34px; left: 50%; transform: translateX(-50%);
+      position: absolute; bottom: 42px; left: 50%; transform: translateX(-50%);
       width: 90px; height: 56px; border: 1px solid rgba(210, 220, 190, .35);
       background: linear-gradient(180deg, rgba(183, 180, 146, .16), rgba(141, 128, 104, .15));
     }
@@ -303,9 +303,18 @@
           <input id="msgInput" class="input" maxlength="90" placeholder="愿家族安宁，后人谨记先德……" />
           <div>
             <button class="btn" id="sendMsgBtn">寄语升天</button>
-            <button class="btn" id="restartBtn">重新祭祀流程</button>
+            <button class="btn" id="finishBtn">完成本轮祭礼</button>
           </div>
           <div id="messageSky"></div>
+        </div>
+      </div>
+
+      <div class="scene" id="scene8">
+        <div class="card">
+          <h2>步骤 7 / 祭礼完成</h2>
+          <p>这一轮赛博祭祀已完成。愿追思化作更温柔的力量，照亮当下与来路。</p>
+          <p class="sub">若条件允许，请在现实中亲自祭拜、清扫与缅怀，让心意真正落地。</p>
+          <button class="btn" id="restartBtn">重新祭祀流程</button>
         </div>
       </div>
     </section>
@@ -318,7 +327,7 @@
 
   <script>
     (() => {
-      const TOTAL_SCENES = 7;
+      const TOTAL_SCENES = 8;
       let currentScene = 1; // 状态机核心状态
       const sceneEls = Array.from({ length: TOTAL_SCENES }, (_, i) => document.getElementById(`scene${i + 1}`));
       const progressEl = document.getElementById('progress');
@@ -382,11 +391,14 @@
         const btn = document.getElementById('saveTargetBtn');
         const tip = document.getElementById('targetTip');
         input.value = targetName;
+        btn.disabled = false;
         btn.onclick = () => {
+          if (btn.disabled) return;
+          btn.disabled = true;
           targetName = input.value.trim() || '某氏列祖列宗';
           tip.textContent = `已确认：${targetName}`;
           document.getElementById('stoneText').innerHTML = `敬祭<br/>${targetName}<br/>风雨归宁`;
-          setTimeout(nextScene, 450);
+          setTimeout(() => { nextScene(); btn.disabled = false; }, 450);
         };
       }
 
@@ -472,6 +484,7 @@
         const status = document.getElementById('dustStatus');
         const nextBtn = document.getElementById('dustNextBtn');
         canvas.style.pointerEvents = 'auto';
+        canvas.style.opacity = '1';
 
         const rect = canvas.getBoundingClientRect();
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -509,8 +522,9 @@
           status.textContent = `擦拭进度：${Math.floor(clearCount)}%`;
           if (clearCount >= needClear) {
             clearCount = 100;
-            ctx.clearRect(0, 0, vw, vh);
             canvas.style.pointerEvents = 'none';
+            canvas.style.opacity = '0';
+            setTimeout(() => { ctx.clearRect(0, 0, vw, vh); }, 900);
             status.textContent = '擦拭进度：100%（灰尘已完全清除）';
             nextBtn.disabled = false;
           }
@@ -587,6 +601,7 @@
         const nextBtn = document.getElementById('burnNextBtn');
         nextBtn.disabled = true;
         burning = false;
+        burnBtn.disabled = false;
         burnBtn.textContent = '点香焚纸';
 
         burnBtn.onclick = () => {
@@ -603,7 +618,7 @@
         const input = document.getElementById('msgInput');
         const btn = document.getElementById('sendMsgBtn');
         const sky = document.getElementById('messageSky');
-        const restart = document.getElementById('restartBtn');
+        const finish = document.getElementById('finishBtn');
 
         btn.onclick = () => {
           const text = input.value.trim();
@@ -618,6 +633,11 @@
           input.value = '';
         };
 
+        finish.onclick = () => nextScene();
+      }
+
+      function initScene8() {
+        const restart = document.getElementById('restartBtn');
         restart.onclick = () => {
           burning = false;
           smokeParticles.length = 0;
@@ -691,7 +711,11 @@
           const ritual = document.getElementById('ritualSpot');
           if (ritual) {
             const r = ritual.getBoundingClientRect();
-            if (Math.random() < 0.9) spawnSmoke(r.left + r.width * (0.48 + (Math.random() - 0.5) * 0.08), r.top + r.height * 0.75);
+            const incenseXs = [0.43, 0.49, 0.55];
+            const ix = incenseXs[Math.floor(Math.random() * incenseXs.length)];
+            const smokeX = r.left + r.width * ix + (Math.random() - 0.5) * 6;
+            const smokeY = r.bottom - 118 + (Math.random() - 0.5) * 6;
+            if (Math.random() < 0.92) spawnSmoke(smokeX, smokeY);
           }
         }
 
@@ -729,6 +753,7 @@
       window.initScene5 = initScene5;
       window.initScene6 = initScene6;
       window.initScene7 = initScene7;
+      window.initScene8 = initScene8;
 
       function boot() {
         resizeRain();
